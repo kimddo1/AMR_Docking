@@ -32,3 +32,22 @@ def go_to_goal_control(state: State, target: Target, params: Dict) -> Tuple[floa
     v = clamp(v, -v_max, v_max)
     w = clamp(w, -w_max, w_max)
     return v, w
+
+
+def relative_pose_control(dist: float, yaw: float, params: Dict) -> Tuple[float, float]:
+    """Control using only relative distance and yaw to target."""
+    v_max = params.get("v_max", 0.6)
+    w_max = params.get("w_max", 1.5)
+    k_v = params.get("k_v", 1.2)
+    k_w = params.get("k_w", 2.0)
+    yaw_slow = params.get("yaw_slow", math.radians(35))
+
+    v = v_max * math.tanh(k_v * dist)
+    if abs(yaw) > yaw_slow:
+        v *= 0.2
+
+    w = w_max * math.tanh(k_w * yaw)
+
+    v = clamp(v, -v_max, v_max)
+    w = clamp(w, -w_max, w_max)
+    return v, w
