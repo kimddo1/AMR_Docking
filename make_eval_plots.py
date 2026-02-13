@@ -23,7 +23,7 @@ def load_rows(path):
         for row in r:
             for k in ["success_rate","final_dist_mean","final_yaw_mean","steps_mean",
                       "collision_rate","near_miss_rate","stop_mean","slow_mean",
-                      "safe_success_rate","safe_steps_mean"]:
+                      "safe_success_rate","safe_steps_mean","recovery_mean","deadlock_rate"]:
                 if k in row:
                     row[k] = float(row[k])
             rows.append(row)
@@ -73,8 +73,10 @@ def plot_safety(rows, out_path):
     near = [r["near_miss_rate"] for r in rows]
     safe_success = [r.get("safe_success_rate", 0.0) for r in rows]
     safe_steps = [r.get("safe_steps_mean", 0.0) for r in rows]
+    recovery_mean = [r.get("recovery_mean", 0.0) for r in rows]
+    deadlock_rate = [r.get("deadlock_rate", 0.0) for r in rows]
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fig, axes = plt.subplots(3, 2, figsize=(12, 10))
 
     ax = axes[0, 0]
     ax.bar(labels, coll, color="tab:red")
@@ -97,7 +99,18 @@ def plot_safety(rows, out_path):
     ax.set_title("Collision-free mean steps")
     ax.tick_params(axis="x", rotation=45, labelsize=8)
 
-    fig.suptitle("Safety On/Off Comparison (Collision-free Metrics)")
+    ax = axes[2, 0]
+    ax.bar(labels, recovery_mean, color="tab:purple")
+    ax.set_title("Recovery count (mean)")
+    ax.tick_params(axis="x", rotation=45, labelsize=8)
+
+    ax = axes[2, 1]
+    ax.bar(labels, deadlock_rate, color="tab:gray")
+    ax.set_title("Deadlock rate")
+    ax.set_ylim(0, 1.0)
+    ax.tick_params(axis="x", rotation=45, labelsize=8)
+
+    fig.suptitle("Safety On/Off Comparison (Collision-free + Recovery)")
     fig.tight_layout()
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

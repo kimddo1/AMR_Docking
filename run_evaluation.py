@@ -14,6 +14,7 @@ from src.safety import SafetyConfig
 from src.obstacles import make_crossing_scenario, make_cutin_scenario, make_mixed_scenario
 from src.test_cases import generate_test_cases, load_test_cases
 from src.actuation import ActuationNoise, ActuationNoiseConfig
+from src.recovery import RecoveryConfig
 
 State = Tuple[float, float, float]
 
@@ -85,6 +86,7 @@ def run_trials(
     scenario: str | None,
     args: argparse.Namespace,
     actuation: ActuationNoise,
+    recovery_cfg: RecoveryConfig | None,
 ) -> Dict:
     successes = 0
     final_dist = []
@@ -96,6 +98,8 @@ def run_trials(
     near_miss = 0
     stop_count = 0
     slow_count = 0
+    deadlocks = 0
+    recovery_total = 0
 
     for i, state0 in enumerate(states):
         sensor_cfg.seed = i
@@ -126,6 +130,7 @@ def run_trials(
             safety_config=safety_cfg,
             obstacles=obstacles,
             actuation=actuation,
+            recovery_config=recovery_cfg,
         )
 
         if hist["success"]:
@@ -143,6 +148,8 @@ def run_trials(
             near_miss += 1 if any(hist["near_miss"]) else 0
         stop_count += int(hist.get("stop_count", 0))
         slow_count += int(hist.get("slow_count", 0))
+        recovery_total += int(hist.get("recovery_count", 0))
+        deadlocks += 1 if hist.get("deadlock", False) else 0
 
     n = len(states)
     return {
@@ -156,6 +163,8 @@ def run_trials(
         "slow_mean": slow_count / n,
         "safe_success_rate": safe_successes / n,
         "safe_steps_mean": sum(safe_steps) / len(safe_steps) if safe_steps else float("nan"),
+        "recovery_mean": recovery_total / n,
+        "deadlock_rate": deadlocks / n,
     }
 
 
@@ -205,35 +214,35 @@ def main() -> None:
     rows.append({
         "name": "baseline_clean",
         **run_trials(states, clean_sensor, robust_off, use_relative_control=False, use_fsm=False,
-                    safety_cfg=None, scenario=None, args=args, actuation=actuation)
+                    safety_cfg=None, scenario=None, args=args, actuation=actuation, recovery_cfg=None)
     })
 
     # + noise (true baseline: no estimator, no hold-last)
     rows.append({
         "name": "noise_only",
         **run_trials(states, noisy_sensor, robust_off, use_relative_control=True, use_fsm=False,
-                    safety_cfg=None, scenario=None, args=args, actuation=actuation, )
+                    safety_cfg=None, scenario=None, args=args, actuation=actuation, recovery_cfg=None)
     })
 
     # + filter
     rows.append({
         "name": "noise_filter",
         **run_trials(states, noisy_sensor, robust_filter, use_relative_control=True, use_fsm=False,
-                    safety_cfg=None, scenario=None, args=args, actuation=actuation)
+                    safety_cfg=None, scenario=None, args=args, actuation=actuation, recovery_cfg=None)
     })
 
     # + gating
     rows.append({
         "name": "noise_filter_gating",
         **run_trials(states, noisy_sensor, robust_filter_gating, use_relative_control=True, use_fsm=False,
-                    safety_cfg=None, scenario=None, args=args, actuation=actuation)
+                    safety_cfg=None, scenario=None, args=args, actuation=actuation, recovery_cfg=None)
     })
 
     # + FSM
     rows.append({
         "name": "noise_filter_gating_fsm",
         **run_trials(states, noisy_sensor, robust_filter_gating, use_relative_control=True, use_fsm=True,
-                    safety_cfg=None, scenario=None, args=args, actuation=actuation)
+                    safety_cfg=None, scenario=None, args=args, actuation=actuation, recovery_cfg=None)
     })
 
     out_csv = os.path.join(args.out_dir, "phase4_ablation.csv")
@@ -246,17 +255,18 @@ def main() -> None:
     # Safety on/off with dynamic obstacles
     safety_cfg = SafetyConfig(r_stop=0.2, r_slow=0.5, v_slow=0.2, w_slow=0.5)
     safety_off_cfg = SafetyConfig(r_stop=-1.0, r_slow=-1.0, v_slow=10.0, w_slow=10.0)
+    recovery_cfg = RecoveryConfig()
 
     safety_rows = []
     safety_rows.append({
         "name": "safety_on",
         **run_trials(states, noisy_sensor, robust_filter_gating, use_relative_control=True, use_fsm=True,
-                    safety_cfg=safety_cfg, scenario="mixed", args=args, actuation=actuation)
+                    safety_cfg=safety_cfg, scenario="mixed", args=args, actuation=actuation, recovery_cfg=recovery_cfg)
     })
     safety_rows.append({
         "name": "safety_off",
         **run_trials(states, noisy_sensor, robust_filter_gating, use_relative_control=True, use_fsm=True,
-                    safety_cfg=safety_off_cfg, scenario="mixed", args=args, actuation=actuation)
+                    safety_cfg=safety_off_cfg, scenario="mixed", args=args, actuation=actuation, recovery_cfg=None)
     })
 
     safety_csv = os.path.join(args.out_dir, "phase4_safety.csv")

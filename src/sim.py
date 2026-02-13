@@ -8,6 +8,7 @@ from .robust import RobustPoseEstimator
 from .fsm import DockingFSM
 from .safety import SafetyConfig, safety_step, Obstacle
 from .actuation import ActuationNoise
+from .recovery import RecoveryConfig, RecoveryManager
 
 State = Tuple[float, float, float]
 Target = Tuple[float, float]
@@ -40,6 +41,7 @@ def simulate(
     safety_config: Optional[SafetyConfig] = None,
     obstacles: Optional[List[Obstacle]] = None,
     actuation: Optional[ActuationNoise] = None,
+    recovery_config: Optional[RecoveryConfig] = None,
 ) -> Dict[str, List[float]]:
     """Run docking simulation with optional sensor, FSM, and safety supervisor."""
     state = state0
@@ -61,6 +63,7 @@ def simulate(
     min_dists: List[Optional[float]] = []
     collisions: List[bool] = []
     near_misses: List[bool] = []
+    recovery_modes: List[str] = []
 
     obs_trajs: List[Dict[str, List[Optional[float]]]] = []
     if obstacles is None:
@@ -71,6 +74,9 @@ def simulate(
     success = False
     stop_count = 0
     slow_count = 0
+    deadlock = False
+
+    recovery = RecoveryManager(recovery_config) if recovery_config is not None else None
 
     for k in range(max_steps):
         t = k * dt
@@ -127,6 +133,7 @@ def simulate(
         if dist <= dist_tol and abs(yaw) <= yaw_tol:
             fsm_states.append("DONE")
             safety_modes.append("DONE")
+            recovery_modes.append("DONE")
             min_dists.append(None)
             collisions.append(False)
             near_misses.append(False)
@@ -161,6 +168,25 @@ def simulate(
             fsm_state = "NONE"
         fsm_states.append(fsm_state)
 
+        # Recovery / re-try overrides (based on safety stop or stalled progress)
+        if recovery is not None and safety_config is not None:
+            # Pre-check safety mode for trigger (distance-based, independent of v/w)
+            _, _, mode_pre, _, _, _ = safety_step(
+                v, w, state[0], state[1], obstacles, safety_config
+            )
+            v_override, w_override, rec_mode, is_deadlock = recovery.update_and_override(
+                dist, mode_pre
+            )
+            recovery_modes.append(rec_mode)
+            if v_override is not None:
+                v = v_override
+            if w_override is not None:
+                w = w_override
+            if is_deadlock:
+                deadlock = True
+        else:
+            recovery_modes.append("NONE")
+
         if safety_config is not None:
             v, w, mode, min_dist, collision, near_miss = safety_step(
                 v, w, state[0], state[1], obstacles, safety_config
@@ -178,6 +204,10 @@ def simulate(
             min_dists.append(None)
             collisions.append(False)
             near_misses.append(False)
+
+        if deadlock:
+            break
+
         state = step_differential_drive(state, (v, w), dt, actuation=actuation)
 
     return {
@@ -202,4 +232,7 @@ def simulate(
         "slow_count": slow_count,
         "obstacles": obs_trajs,
         "success": success,
+        "deadlock": deadlock,
+        "recovery_mode": recovery_modes,
+        "recovery_count": recovery.recovery_count if recovery is not None else 0,
     }

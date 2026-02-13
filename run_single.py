@@ -12,6 +12,7 @@ from src.fsm import DockingFSM, FSMConfig
 from src.safety import SafetyConfig
 from src.obstacles import make_crossing_scenario, make_cutin_scenario
 from src.actuation import ActuationNoise, ActuationNoiseConfig
+from src.recovery import RecoveryConfig
 
 
 def parse_args() -> argparse.Namespace:
@@ -72,6 +73,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_actuation_noise", action="store_true")
     parser.add_argument("--sigma_v", type=float, default=0.03)
     parser.add_argument("--sigma_w", type=float, default=0.05)
+    # Recovery
+    parser.add_argument("--use_recovery", action="store_true")
+    parser.add_argument("--stop_persist_steps", type=int, default=20)
+    parser.add_argument("--progress_window", type=int, default=30)
+    parser.add_argument("--min_progress", type=float, default=0.05)
+    parser.add_argument("--wait_steps", type=int, default=10)
+    parser.add_argument("--rotate_steps", type=int, default=20)
+    parser.add_argument("--backoff_steps", type=int, default=15)
+    parser.add_argument("--backoff_speed", type=float, default=0.15)
+    parser.add_argument("--rotate_speed", type=float, default=0.8)
+    parser.add_argument("--reapproach_steps", type=int, default=15)
+    parser.add_argument("--max_retries", type=int, default=3)
     return parser.parse_args()
 
 
@@ -98,6 +111,7 @@ def main() -> None:
     safety_cfg = None
     obstacles = []
     actuation = None
+    recovery_cfg = None
 
     if args.use_sensor:
         sensor_cfg = SensorConfig(
@@ -157,6 +171,20 @@ def main() -> None:
             seed=args.seed,
         ))
 
+    if args.use_recovery:
+        recovery_cfg = RecoveryConfig(
+            stop_persist_steps=args.stop_persist_steps,
+            progress_window=args.progress_window,
+            min_progress=args.min_progress,
+            wait_steps=args.wait_steps,
+            rotate_steps=args.rotate_steps,
+            backoff_steps=args.backoff_steps,
+            backoff_speed=args.backoff_speed,
+            rotate_speed=args.rotate_speed,
+            reapproach_steps=args.reapproach_steps,
+            max_retries=args.max_retries,
+        )
+
     hist = simulate(
         state0=state0,
         target=target,
@@ -172,6 +200,7 @@ def main() -> None:
         safety_config=safety_cfg,
         obstacles=obstacles,
         actuation=actuation,
+        recovery_config=recovery_cfg,
     )
 
     xs = hist["x"]

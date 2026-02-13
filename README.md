@@ -48,10 +48,42 @@ Outputs:
 - `outputs/phase4_ablation_plots.png`
 - `outputs/phase4_safety_plots.png`
 
+## Phase 5 Auto-Tuning
+Random search over controller/FSM/robustness parameters (uses fixed cases + calibrated noise).
+Latency is treated as a **fixed stress setting** via `--latency_steps` (default: 5 steps).
+
+Example:
+```bash
+python /Users/M1/Desktop/CMM/AMR_Docking/tune_params.py \
+  --trials 300 --seed 42 --max_cases 200 \
+  --use_sensor --use_filter --use_gating --hold_last --use_fsm --use_safety \
+  --scenario mixed --latency_steps 5 \
+  --load_noise outputs/noise_calibration.json \
+  --load_cases outputs/test_cases.csv
+```
+
+Outputs:
+- `outputs/tuning_results.csv`
+- `outputs/tuning_topk.csv`
+- `outputs/best_config.json`
+- `outputs/tuning_summary.md`
+
 ### Safety Metrics Note
 - `phase4_safety.csv` includes **collision-free metrics**:
   - `safe_success_rate` = success without any collision
   - `safe_steps_mean` = mean steps among collision-free successes
+- Phase 6 recovery metrics (if enabled in evaluation):
+  - `recovery_mean` = mean recovery episodes per trial
+  - `deadlock_rate` = fraction of trials that hit deadlock
+
+## Phase 6 Recovery (Re-try Logic)
+Enable recovery in single-run demos:
+```bash
+python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
+  --use_sensor --use_filter --use_gating --hold_last \
+  --use_fsm --use_safety --use_recovery --scenario crossing
+```
+Default recovery behavior: wait → rotate → backoff → re-approach, with max retries.
 - Safety evaluation uses a **mixed obstacle scenario** (crossing + short cut-in + persistent cut-in) for fair comparison.
 
 ## Key Files
