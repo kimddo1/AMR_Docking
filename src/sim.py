@@ -64,6 +64,9 @@ def simulate(
     collisions: List[bool] = []
     near_misses: List[bool] = []
     recovery_modes: List[str] = []
+    recovery_triggers: List[bool] = []
+    recovery_stalled: List[bool] = []
+    recovery_stop_streak: List[int] = []
 
     obs_trajs: List[Dict[str, List[Optional[float]]]] = []
     if obstacles is None:
@@ -178,6 +181,9 @@ def simulate(
                 dist, mode_pre
             )
             recovery_modes.append(rec_mode)
+            recovery_triggers.append(bool(recovery.last_trigger))
+            recovery_stalled.append(bool(recovery.last_stalled))
+            recovery_stop_streak.append(int(recovery.last_stop_streak))
             if v_override is not None:
                 v = v_override
             if w_override is not None:
@@ -186,6 +192,9 @@ def simulate(
                 deadlock = True
         else:
             recovery_modes.append("NONE")
+            recovery_triggers.append(False)
+            recovery_stalled.append(False)
+            recovery_stop_streak.append(0)
 
         if safety_config is not None:
             v, w, mode, min_dist, collision, near_miss = safety_step(
@@ -234,5 +243,8 @@ def simulate(
         "success": success,
         "deadlock": deadlock,
         "recovery_mode": recovery_modes,
+        "recovery_trigger": recovery_triggers,
+        "recovery_stalled": recovery_stalled,
+        "recovery_stop_streak": recovery_stop_streak,
         "recovery_count": recovery.recovery_count if recovery is not None else 0,
     }

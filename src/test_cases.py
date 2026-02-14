@@ -7,7 +7,10 @@ from typing import List, Tuple
 State = Tuple[float, float, float]
 
 
-def generate_test_cases(path: str, num: int, seed: int) -> List[State]:
+def generate_test_cases(path: str, num: int, seed: int, force: bool = False) -> List[State]:
+    """Generate and save test cases. If file exists and force=False, reuse it."""
+    if os.path.exists(path) and not force:
+        return load_test_cases(path)
     rng = random.Random(seed)
     states: List[State] = []
     while len(states) < num:

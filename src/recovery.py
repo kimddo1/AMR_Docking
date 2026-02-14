@@ -27,6 +27,10 @@ class RecoveryManager:
         self.retries = 0
         self.deadlock = False
         self.recovery_count = 0
+        # Debug/analysis hooks (last update)
+        self.last_trigger = False
+        self.last_stalled = False
+        self.last_stop_streak = 0
 
     def _progress_stalled(self) -> bool:
         if len(self.dist_hist) < self.config.progress_window:
@@ -53,7 +57,12 @@ class RecoveryManager:
         else:
             self.stop_streak = 0
 
-        trigger = (self.stop_streak >= self.config.stop_persist_steps) or self._progress_stalled()
+        stalled = self._progress_stalled()
+        trigger = (self.stop_streak >= self.config.stop_persist_steps) or stalled
+        # expose debug state
+        self.last_trigger = trigger
+        self.last_stalled = stalled
+        self.last_stop_streak = self.stop_streak
 
         if self.mode == "IDLE" and trigger:
             if self.retries >= self.config.max_retries:

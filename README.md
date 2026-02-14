@@ -30,6 +30,15 @@ python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
 - Noise strength is calibrated to target baseline success rate range:
   - `outputs/noise_calibration.json`
 
+## Official Benchmark Splits (Locked)
+These are the **official benchmark splits** used for tuning and final evaluation:
+- Train: `outputs/train_cases.csv` (420 cases)
+- Val: `outputs/val_cases.csv` (90 cases)
+- Test holdout: `outputs/test_cases_holdout.csv` (90 cases)
+
+**Important:** `src/test_cases.generate_test_cases()` will **not overwrite** existing files unless explicitly forced.
+To regenerate, delete the CSV(s) you want to replace.
+
 To (re)generate:
 ```bash
 python /Users/M1/Desktop/CMM/AMR_Docking/calibrate_noise.py --target_min 0.4 --target_max 0.7
@@ -59,7 +68,8 @@ python /Users/M1/Desktop/CMM/AMR_Docking/tune_params.py \
   --use_sensor --use_filter --use_gating --hold_last --use_fsm --use_safety \
   --scenario mixed --latency_steps 5 \
   --load_noise outputs/noise_calibration.json \
-  --load_cases outputs/test_cases.csv
+  --load_cases outputs/train_cases.csv \
+  --val_cases outputs/val_cases.csv
 ```
 
 Outputs:
@@ -85,6 +95,14 @@ python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
 ```
 Default recovery behavior: wait → rotate → backoff → re-approach, with max retries.
 - Safety evaluation uses a **mixed obstacle scenario** (crossing + short cut-in + persistent cut-in) for fair comparison.
+
+## Phase 5–6 Evaluation (Holdout)
+Use the **test holdout set** for final reporting:
+```bash
+python /Users/M1/Desktop/CMM/AMR_Docking/run_evaluation_phase56.py \
+  --cases outputs/test_cases_holdout.csv --max_cases 0
+python /Users/M1/Desktop/CMM/AMR_Docking/make_phase56_plots.py
+```
 
 ## Key Files
 - `src/dynamics.py` — differential-drive kinematics
