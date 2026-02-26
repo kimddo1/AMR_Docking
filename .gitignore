@@ -29,6 +29,7 @@ htmlcov/
 # Project outputs
 /outputs/
 /outputs copy/
+/outputs copy 2/
 /logs/
 /data/
 

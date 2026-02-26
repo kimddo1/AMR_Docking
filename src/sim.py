@@ -67,6 +67,7 @@ def simulate(
     recovery_triggers: List[bool] = []
     recovery_stalled: List[bool] = []
     recovery_stop_streak: List[int] = []
+    recovery_trigger_reason: List[str] = []
 
     obs_trajs: List[Dict[str, List[Optional[float]]]] = []
     if obstacles is None:
@@ -177,13 +178,15 @@ def simulate(
             _, _, mode_pre, _, _, _ = safety_step(
                 v, w, state[0], state[1], obstacles, safety_config
             )
+            yaw_ref = est[1] if est is not None else yaw
             v_override, w_override, rec_mode, is_deadlock = recovery.update_and_override(
-                dist, mode_pre
+                dist, mode_pre, yaw_ref, dt
             )
             recovery_modes.append(rec_mode)
             recovery_triggers.append(bool(recovery.last_trigger))
             recovery_stalled.append(bool(recovery.last_stalled))
             recovery_stop_streak.append(int(recovery.last_stop_streak))
+            recovery_trigger_reason.append(str(recovery.last_trigger_reason))
             if v_override is not None:
                 v = v_override
             if w_override is not None:
@@ -195,6 +198,7 @@ def simulate(
             recovery_triggers.append(False)
             recovery_stalled.append(False)
             recovery_stop_streak.append(0)
+            recovery_trigger_reason.append("NONE")
 
         if safety_config is not None:
             v, w, mode, min_dist, collision, near_miss = safety_step(
@@ -246,5 +250,8 @@ def simulate(
         "recovery_trigger": recovery_triggers,
         "recovery_stalled": recovery_stalled,
         "recovery_stop_streak": recovery_stop_streak,
+        "recovery_trigger_reason": recovery_trigger_reason,
         "recovery_count": recovery.recovery_count if recovery is not None else 0,
+        "recovery_steps_total": recovery.recovery_steps_total if recovery is not None else 0,
+        "recovery_no_improve_cycles": recovery.no_improve_cycles if recovery is not None else 0,
     }

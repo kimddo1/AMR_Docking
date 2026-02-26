@@ -1,5 +1,6 @@
 import argparse
 import csv
+import math
 import os
 from typing import List, Dict
 
@@ -21,15 +22,15 @@ def parse_args():
     return p.parse_args()
 
 
-def pareto_front(rows: List[Dict], key_x: str, key_y: str) -> List[Dict]:
-    # Minimize both x and y
-    rows_sorted = sorted(rows, key=lambda r: (r[key_x], r[key_y]))
+def pareto_front_steps_vs_accuracy(rows: List[Dict], key_steps: str, key_acc: str) -> List[Dict]:
+    # Minimize steps, maximize accuracy.
+    rows_sorted = sorted(rows, key=lambda r: r[key_steps])
     front = []
-    best_y = float('inf')
+    best_acc = -float("inf")
     for r in rows_sorted:
-        if r[key_y] < best_y:
+        if r[key_acc] > best_acc:
             front.append(r)
-            best_y = r[key_y]
+            best_acc = r[key_acc]
     return front
 
 
@@ -48,23 +49,28 @@ def main():
 
     # filter by success thresholds
     rows = [r for r in rows if r["val_success_rate"] >= args.min_success and r["val_safe_success_rate"] >= args.min_safe_success]
+    # drop invalid metrics (e.g. zero-success trials that produce NaN means)
+    rows = [r for r in rows if not (math.isnan(r["val_dist_mean"]) or math.isnan(r["val_yaw_mean"]) or math.isnan(r["val_steps_mean"]))]
 
-    # compute accuracy metric: weighted dist(cm) + yaw(deg)
+    # Compute error metric first, then convert to quality score (higher is better).
+    # quality = 100 / (1 + weighted_error)
     for r in rows:
         dist_cm = r["val_dist_mean"] * 100.0
         yaw_deg = r["val_yaw_mean"] * 57.29577951308232
-        r["acc_score"] = args.w_dist * dist_cm + args.w_yaw * yaw_deg
+        err = args.w_dist * dist_cm + args.w_yaw * yaw_deg
+        r["acc_error"] = err
+        r["acc_score"] = 100.0 / (1.0 + err)
         r["dist_cm"] = dist_cm
         r["yaw_deg"] = yaw_deg
 
-    # Pareto front on (acc_score, steps_mean)
-    front = pareto_front(rows, "acc_score", "val_steps_mean")
+    # Pareto front on (steps_mean min, acc_score max)
+    front = pareto_front_steps_vs_accuracy(rows, "val_steps_mean", "acc_score")
 
     # Save tradeoff CSV
     os.makedirs(os.path.dirname(args.out_csv), exist_ok=True)
     with open(args.out_csv, "w", newline="") as f:
         fieldnames = [
-            "trial","acc_score","dist_cm","yaw_deg","val_steps_mean",
+            "trial","acc_score","acc_error","dist_cm","yaw_deg","val_steps_mean",
             "val_success_rate","val_safe_success_rate","val_collision_rate","val_score",
         ]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -81,7 +87,7 @@ def main():
                color="tab:red", label="Pareto front")
 
     ax.set_xlabel("Mean steps (validation)")
-    ax.set_ylabel("Accuracy score (lower is better)")
+    ax.set_ylabel("Accuracy score (higher is better)")
     ax.set_title("Accuracy vs Speed Trade-off")
     ax.grid(True, alpha=0.3)
     ax.legend(loc="best")
@@ -91,11 +97,11 @@ def main():
 
     # Summary
     fastest = sorted(rows, key=lambda r: r["val_steps_mean"])[:5]
-    most_accurate = sorted(rows, key=lambda r: r["acc_score"])[:5]
+    most_accurate = sorted(rows, key=lambda r: r["acc_score"], reverse=True)[:5]
 
     with open(args.out_summary, "w") as f:
         f.write("# Tuning Trade-off Summary\n\n")
-        f.write(f"Accuracy metric: {args.w_dist}*dist_cm + {args.w_yaw}*yaw_deg\n\n")
+        f.write(f"Accuracy quality metric (higher is better): 100 / (1 + {args.w_dist}*dist_cm + {args.w_yaw}*yaw_deg)\n\n")
         f.write(f"Total trials (filtered): {len(rows)}\n")
         f.write(f"Pareto front size: {len(front)}\n\n")
 
