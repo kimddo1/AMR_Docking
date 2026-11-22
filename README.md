@@ -6,12 +6,12 @@ Robust 2D differential-drive docking simulator with sensor corruption, filtering
 
 ### Phase 1 (clean GT)
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py
+python run_single.py
 ```
 
 ### Phase 2 (sensor corruption + robust stack)
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
+python run_single.py \
   --use_sensor --sigma_d 0.05 --sigma_yaw 0.1 --p_drop 0.2 --p_out 0.05 \
   --outlier_dist 0.6 --outlier_yaw_deg 25 \
   --use_filter --use_gating --hold_last --show_meas
@@ -19,7 +19,7 @@ python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
 
 ### Phase 3 (FSM + Safety + Dynamic Obstacles)
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
+python run_single.py \
   --use_sensor --use_filter --use_gating --hold_last \
   --use_fsm --use_safety --scenario crossing --show_meas
 ```
@@ -41,14 +41,14 @@ To regenerate, delete the CSV(s) you want to replace.
 
 To (re)generate:
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/calibrate_noise.py --target_min 0.4 --target_max 0.7
+python calibrate_noise.py --target_min 0.4 --target_max 0.7
 ```
 
 ## Phase 4 Evaluation (Ablations + Safety)
 Run the full evaluation pipeline:
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_evaluation.py
-python /Users/M1/Desktop/CMM/AMR_Docking/make_eval_plots.py
+python run_evaluation.py
+python make_eval_plots.py
 ```
 
 Outputs:
@@ -63,7 +63,7 @@ Latency is treated as a **fixed stress setting** via `--latency_steps` (default:
 
 Example:
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/tune_params.py \
+python tune_params.py \
   --trials 300 --seed 42 --max_cases 200 \
   --use_sensor --use_filter --use_gating --hold_last --use_fsm --use_safety \
   --scenario mixed --latency_steps 5 \
@@ -89,7 +89,7 @@ Outputs:
 ## Phase 6 Recovery (Re-try Logic)
 Enable recovery in single-run demos:
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_single.py \
+python run_single.py \
   --use_sensor --use_filter --use_gating --hold_last \
   --use_fsm --use_safety --use_recovery --scenario crossing
 ```
@@ -99,9 +99,9 @@ Default recovery behavior: wait → rotate → backoff → re-approach, with max
 ## Phase 5–6 Evaluation (Holdout)
 Use the **test holdout set** for final reporting:
 ```bash
-python /Users/M1/Desktop/CMM/AMR_Docking/run_evaluation_phase56.py \
+python run_evaluation_phase56.py \
   --cases outputs/test_cases_holdout.csv --max_cases 0
-python /Users/M1/Desktop/CMM/AMR_Docking/make_phase56_plots.py
+python make_phase56_plots.py
 ```
 
 ## Key Files
