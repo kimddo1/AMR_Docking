@@ -124,3 +124,4 @@ python make_phase56_plots.py
 ## Notes
 - Actuation noise defaults: `sigma_v=0.03`, `sigma_w=0.05` (3%/5%).
 - Cut-in obstacles can be persistent; safety may stop indefinitely in those cases.
+
